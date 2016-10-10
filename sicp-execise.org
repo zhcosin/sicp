@@ -1,0 +1,181 @@
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="style.css" />
+#+TITLE: SICP 学习笔记与习题解答
+#+AUTHOR: zhcosin<zhcosin@163.com>
+#+DATE: <2016-10-10 周一>
+#+LANGUAGE: zh-CN
+#+OPTIONS: num:nil ^:{}
+
+* 第一章 构造过程抽象
+  
+** 1.1 程序设计的基本元素
+
+*** 1.1.6 条件表达式和谓词
+
+**** 练习1.5
+
+***** problem
+
+luation. He defines the following two procedures:
+
+#+BEGIN_SRC scheme
+(define (p) (p))
+
+(define (test x y)
+  (if (= x 0)
+      0
+      y))
+#+END_SRC
+
+Then he evaluates the expression
+
+#+BEGIN_SRC scheme
+(test 0 (p))
+#+END_SRC
+
+What behavior will Ben observe with an interpreter that uses applicative-order evaluation? What behavior will he observe with an interpreter that uses normal-order evaluation? Explain your answer. (Assume that the evaluation rule for the special form if is the same whether the interpreter is using normal or applicative order: The predicate expression is evaluated first, and the result determines whether to evaluate the consequent or the alternative expression.) 
+
+***** answer
+      
+如果解释器采用应用序求值，则由于先对参数求值，而对p的递归求值会导致解释器陷入无限递归永远退出（通常解释器会限制递归深度，在超出限制的情况下报告错误）。
+
+而如果解释器采用的是正则序，在将对test的调用替换成test的过程定义之后求值if表达式，而if的惰性求值特性使得它不会再去求值为假的子表达式，而直接返回0作为结果。
+
+*** 1.1.7 实例：采用牛顿法求平方根
+
+**** 练习1.6
+
+***** problem
+
+Alyssa P. Hacker doesn't see why if needs to be provided as a special form. ``Why can't I just define it as an ordinary procedure in terms of cond?'' she asks. Alyssa's friend Eva Lu Ator claims this can indeed be done, and she defines a new version of if:
+
+#+BEGIN_SRC scheme
+(define (new-if predicate then-clause else-clause)
+  (cond (predicate then-clause)
+        (else else-clause)))
+#+END_SRC
+
+Eva demonstrates the program for Alyssa:
+
+#+BEGIN_SRC scheme
+(new-if (= 2 3) 0 5)
+5
+
+(new-if (= 1 1) 0 5)
+0
+#+END_SRC
+
+Delighted, Alyssa uses new-if to rewrite the square-root program:
+
+#+BEGIN_SRC scheme
+(define (sqrt-iter guess x)
+  (new-if (good-enough? guess x)
+          guess
+          (sqrt-iter (improve guess x)
+                     x)))
+#+END_SRC
+
+What happens when Alyssa attempts to use this to compute square roots? Explain. 
+
+***** answer
+      
+new-if 作为一个函数，在对其调用时会先对其参数进行参数，无论前面的条件为真还是假，后面的两个参数都会被求值，因而会陷入无限递归或者超出解释器的最大递归深度限制，而if操作符具备惰性求值的特性，即当条件为真时只求值then-clause，而当条件为假时只求值else-clause。
+
+
+** 1.2 过程与它们所产生的计算
+   
+*** 1.2.2 树形递归
+
+**** 斐波那契(Fibonacci)数列
+
+斐波那契数列定义如下: $a_0=0, a_1=1, a_{n+2}=a_{n+1}+a_{n}(n\geqslant 2)$，这是一个递归定义，对应的函数如下:
+
+#+BEGIN_SRC scheme
+(define (fibnacci n)
+  (cond ((= n 0) 0)
+	((= n 1) 1)
+	(else (+ (fibnacci (- n 1)) (fibnacci (- n 2))))))
+#+END_SRC
+
+这基本上是直接将数列定义直接翻译成代码了，但是这个函数非常低效，其包含大量的冗余计算，比如在计算$a_{10}$时会先计算$a_8$和$a_9$，而计算$a_9$又会先计算$a_8$，这个冗余是非常严重的，现在就来看看这个情况到底严重到什么程度。由于无论计算哪一项，最终都会归结到计算$a_0$和$a_1$，所以下面通过在计算$a_n$时，$a_0$或$a_1$被求值的次数来说明问题。
+
+假如这个次数是$b_n$，那么$b_0=1,b_1=1$，而且按照这个递归求法，在$n>1$时，$b_{n+2}=b_{n+1}+b_n$，这样数列$b_n$刚好也是斐波那契数列，只是初值不同，实际上刚好有$b_n=a_{n+1}$，这就是说，按照上面这个函数，在对$a_n$进行求值时，$a_0$和$a_1$将会被求值的次数是$a_{n+1}$，这有多大呢，看看斐波那契数列的通项就知道了:
+$$ a_n= \frac{1}{\sqrt{5}}\left( (\frac{1+\sqrt{5}}{2})^n - (\frac{1-\sqrt{5}}{2})^n \right) $$
+现在证明: $a_n$是最接近$\phi / \sqrt{5}$ 的整数，这里 $\phi$ 是 *黄金分割比*:
+$$ \phi = (1+\sqrt{5}) / 2 \approx 1.618 $$
+它满足方程 $ \phi^2 = 1+\phi $，因为$a_n$是整数是显然的事实，所以只要证明下面这个不等式就行了:
+$$ \left| a_n-\frac{1}{\sqrt{5}}(\frac{1+\sqrt{5}}{2})^n \right| < \frac{1}{2} $$
+而这只需要证明:
+$$ \frac{1}{\sqrt{5}}(\frac{\sqrt{5}-1}{2})^n<\frac{1}{2} $$
+而这由于0<$\frac{\sqrt{5}-1}{2}<1$，因此它的指数越大幂的值越小，所以它的成立是显然的。
+这就是说，$a_n$是呈指数增长的，因此，上面算法的时间复杂度是$O(\phi^n)$，直观点说，在 =Scheme48= 解释器上运行这个函数，在求值第50项的时候已经需要等候几分钟的时间了，更不用说这之后的项了。
+
+高效的算法是存在的，事实上我们只要手持两个变量$x$和$y$，并初始化为$x=a_0=0$和$y=a_1=1$，然后按照下面的规则反复迭代:
+$$
+x \gets y \\
+y \gets x+y
+$$
+在迭代过程中，$x$和$y$始终代表斐波那契数列的相邻两项，而且为了求得$a_n$，这个迭代过程只需要进行$n-1$次就够了，这显然比前面的算法快了许多，其时间复杂度为 $O(n)$，而对应的函数则为:
+
+#+BEGIN_SRC scheme
+(define (fibnacci n)
+  (define (fibnacci-iter n x y i)
+    (if (= n i)
+	x
+	(fibnacci-iter n y (+ x y) (+ i 1))))
+  (fibnacci-iter n 0 1 0))
+#+END_SRC
+
+得益于这个更加高效的算法，我们来看看第1000项的值:
+
+#+BEGIN_SRC scheme
+(fibnacci 1000)
+43466557686937456435688527675040625802564660517371780402481729089536555417949051890403879840079255169295922593080322634775209689623239873322471161642996440906533187938298969649928516003704476137795166849228875
+#+END_SRC
+我滴个神哪！！！。。。
+这意味着如果用前面的算法，在求第1000项时，对$a_0$和$a_1$的求值次数将是这样一个天文数字，这还是在假设解释器允许这么一个灾难性的计算的情况下！
+
+然而更加高效的算法是存在的，刚才的迭代算法实际上是一个线性变换，显然这个迭代过程就是在做线性变换的乘法，因为线性变换的乘积仍然是一个线性变换，我们可以加速这个乘法过程，方法就是将两次线性变换压缩为一次线性变换，再通过乘方的快速运算来加速整个运算过程。
+
+方法如下，上面的迭代过程进行两次，等价于进行一次下面的变换:
+$$
+x \gets x+y \\
+y \gets x+2y
+$$
+将原来的线性迭代记为$\mu$，新的线性迭代记为$\nu$，则$\mu^2=\nu$，然后对$a_n$的计算实际上就是对原始的数对施行$\mu^{n-1}$，而现在我们可以通过$\nu$加速这个过程:
+$$
+\mu^{2n}=(\mu^n)^2 \\
+\mu^{2n+1}=\mu \cdot (\mu)^{2n}
+$$
+这样，在计算$a_n$时，这样的迭代只需要进行大致$\log_2 n$左右，时间复杂度为$O(log n)$，
+
+** 1.3 用高阶函数做抽象
+
+* 第二章 构造数据抽象
+  
+** 2.2 层次性数据和闭包性质
+
+*** 2.2.2 层次性结构
+
+**** 练习2.32
+     
+***** problem
+We can represent a set as a list of distinct elements, and we can represent the set of all subsets of the set as a list of lists. For example, if the set is (1 2 3), then the set of all subsets is (() (3) (2) (2 3) (1) (1 3) (1 2) (1 2 3)). Complete the following definition of a procedure that generates the set of subsets of a set and give a clear explanation of why it works:
+
+#+BEGIN_SRC scheme
+(define (subsets s)
+  (if (null? s)
+      (list nil)
+      (let ((rest (subsets (cdr s))))
+        (append rest (map <??> rest)))))
+#+END_SRC
+
+***** answer
+      
+#+BEGIN_SRC scheme
+(define (subsets s)
+  (if (null? s)
+      (list '())
+      (let ((rest (subsets (cdr s))))
+        (append rest (map (lambda (x) (append (list (car s)) x)) rest)))))
+#+END_SRC
+
